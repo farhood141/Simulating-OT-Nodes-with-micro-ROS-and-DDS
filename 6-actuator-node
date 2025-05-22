@@ -1,0 +1,81 @@
+#include <stdio.h>
+#include <rcl/rcl.h>
+#include <rcl/error_handling.h>
+#include <rclc/rclc.h>
+#include <rclc/executor.h>
+#include <std_msgs/msg/int32.h>
+
+#define THRESHOLD 50
+
+rcl_subscription_t subscriber;
+bool actuator_state = false;
+
+void subscription_callback(const void *msgin) {
+    const std_msgs__msg__Int32 *msg = (const std_msgs__msg__Int32 *)msgin;
+    printf("Received: %d\n", msg->data);
+    
+    if (msg->data > THRESHOLD && !actuator_state) {
+        printf("Threshold crossed! Activating actuator...\n");
+        actuator_state = true;
+    } else if (msg->data <= THRESHOLD && actuator_state) {
+        printf("Value below threshold. Deactivating actuator...\n");
+        actuator_state = false;
+    }
+}
+
+int main(int argc, const char * const * argv) {
+    rcl_allocator_t allocator = rcl_get_default_allocator();
+    rclc_support_t support;
+    rcl_ret_t rc;
+    
+    // Initialize micro-ROS
+    rc = rclc_support_init(&support, argc, argv, &allocator);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_support_init\n");
+        return -1;
+    }
+    
+    // Create node
+    rcl_node_t node = rcl_get_zero_initialized_node();
+    rc = rclc_node_init_default(&node, "actuator_node", "", &support);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_node_init_default\n");
+        return -1;
+    }
+    
+    // Create subscriber
+    rc = rclc_subscription_init_default(
+        &subscriber,
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+        "sensor_data");
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_subscription_init_default\n");
+        return -1;
+    }
+    
+    // Create executor
+    rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
+    rc = rclc_executor_init(&executor, &support.context, 1, &allocator);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_executor_init\n");
+        return -1;
+    }
+    rc = rclc_executor_add_subscription(&executor, &subscriber, &subscription_callback, ON_NEW_DATA);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_executor_add_subscription\n");
+        return -1;
+    }
+    
+    // Spin
+    while(1) {
+        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+    }
+    
+    // Cleanup
+    rcl_subscription_fini(&subscriber, &node);
+    rcl_node_fini(&node);
+    rclc_support_fini(&support);
+    
+    return 0;
+}
