@@ -1,0 +1,10 @@
+# نصب ROS 2 tools
+sudo apt install -y ros-${ROS_DISTRO}-ros2cli ros-${ROS_DISTRO}-rqt
+
+# مشاهده topics
+source /opt/ros/${ROS_DISTRO}/setup.bash
+ros2 topic list
+ros2 topic echo /sensor_data
+
+# یا استفاده از rqt
+rqt
