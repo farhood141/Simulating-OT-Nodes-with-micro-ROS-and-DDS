@@ -1,0 +1,24 @@
+using sysbus
+
+# Create two HiFive1 nodes
+mach create "sensor"
+machine LoadPlatformDescription @~/renode-platforms/sifive-hifive1--zephyr.renode
+connector Connect sysbus.uart0 socket://127.0.0.1:8881
+
+mach create "actuator"
+machine LoadPlatformDescription @~/renode-platforms/sifive-hifive1--zephyr.renode
+connector Connect sysbus.uart0 socket://127.0.0.1:8882
+
+# Start DDS agent
+$DDS_AGENT=start-micro-ros-agent udp4 --port 8888 -v6
+
+# Start nodes
+mach set "sensor"
+sysbus LoadELF @~/micro_ros_ws/build/sensor_node/zephyr/zephyr.elf
+start
+
+mach set "actuator"
+sysbus LoadELF @~/micro_ros_ws/build/actuator_node/zephyr/zephyr.elf
+start
+
+showAnalyzer sysbus.uart0
