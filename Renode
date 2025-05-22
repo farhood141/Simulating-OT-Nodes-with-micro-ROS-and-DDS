@@ -1,0 +1,11 @@
+# دانلود و نصب Renode
+wget https://github.com/renode/renode/releases/latest/download/renode_1.13.1_amd64.deb
+sudo dpkg -i renode_1.13.1_amd64.deb
+sudo apt-get install -f
+
+# اضافه کردن کاربر به گروه dialout
+sudo usermod -a -G dialout $USER
+
+# دانلود پلتفرم SiFive HiFive1 برای Renode
+mkdir -p ~/renode-platforms
+wget https://dl.antmicro.com/projects/renode/sifive-hifive1--zephyr.renode -P ~/renode-platforms/
