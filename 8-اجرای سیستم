@@ -1,0 +1,6 @@
+# کامپایل نودها
+cd ~/micro_ros_ws
+ros2 run micro_ros_setup build_firmware.sh sensor_node actuator_node
+
+# اجرای Renode
+renode ot_network.resc
