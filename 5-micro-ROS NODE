@@ -1,0 +1,88 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <rcl/rcl.h>
+#include <rcl/error_handling.h>
+#include <rclc/rclc.h>
+#include <rclc/executor.h>
+#include <std_msgs/msg/int32.h>
+
+rcl_publisher_t publisher;
+std_msgs__msg__Int32 msg;
+
+void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
+    (void) last_call_time;
+    if (timer != NULL) {
+        msg.data = rand() % 100;  // داده سنسور تصادفی
+        rcl_publish(&publisher, &msg, NULL);
+        printf("Published: %d\n", msg.data);
+    }
+}
+
+int main(int argc, const char * const * argv) {
+    rcl_allocator_t allocator = rcl_get_default_allocator();
+    rclc_support_t support;
+    rcl_ret_t rc;
+    
+    // Initialize micro-ROS
+    rc = rclc_support_init(&support, argc, argv, &allocator);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_support_init\n");
+        return -1;
+    }
+    
+    // Create node
+    rcl_node_t node = rcl_get_zero_initialized_node();
+    rc = rclc_node_init_default(&node, "sensor_node", "", &support);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_node_init_default\n");
+        return -1;
+    }
+    
+    // Create publisher
+    rc = rclc_publisher_init_default(
+        &publisher,
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+        "sensor_data");
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_publisher_init_default\n");
+        return -1;
+    }
+    
+    // Create timer
+    rcl_timer_t timer = rcl_get_zero_initialized_timer();
+    rc = rclc_timer_init_default(
+        &timer,
+        &support,
+        RCL_MS_TO_NS(1000),
+        timer_callback);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_timer_init_default\n");
+        return -1;
+    }
+    
+    // Create executor
+    rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
+    rc = rclc_executor_init(&executor, &support.context, 1, &allocator);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_executor_init\n");
+        return -1;
+    }
+    rc = rclc_executor_add_timer(&executor, &timer);
+    if (rc != RCL_RET_OK) {
+        printf("Error in rclc_executor_add_timer\n");
+        return -1;
+    }
+    
+    // Spin
+    while(1) {
+        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+    }
+    
+    // Cleanup
+    rcl_publisher_fini(&publisher, &node);
+    rcl_node_fini(&node);
+    rclc_support_fini(&support);
+    
+    return 0;
+}
